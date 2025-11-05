@@ -1,8 +1,8 @@
 import os
+import random
+
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
-from torchvision import datasets, transforms
 
 # Enviornment
 room = [
@@ -32,13 +32,16 @@ maze = [
 ]
 
 # Variables
+EPSILON = 0.3
 H, W = len(room), len(room[0])
 WALL = 1
 PATH = 0
 END = (8, 8)
 ACTIONS = [(-1,0),(0,1),(1,0),(0,-1)]
+MAX_STEPS = 200
 
-current_position = (0,0)
+steps = 0
+current_position = (1,1)
 state = [[current_position[0] / H, current_position[1] / W]]
 state_tensor = torch.tensor(state)
 
@@ -57,13 +60,32 @@ class DQN(nn.Module):
         )
     def forward(self, x):
         return self.net(x)
-    
 model = DQN()
-q_values = model(state_tensor)
-best_action_index = q_values.argmax(dim=1).item()
-next_position = (current_position[0] + ACTIONS[best_action_index][0], current_position[1] + ACTIONS[best_action_index][1])
 
-print(f"Current: ({current_position[0]},{current_position[1]})")
-print("Q-Values:", q_values)
-print("Best action:", best_action_index)
-print("Next position:", next_position)
+while current_position != END and steps < MAX_STEPS:    
+    steps += 1
+    q_values = model(state_tensor)
+    best_actions = q_values.argsort(dim=1, descending=True)
+        
+    for i in best_actions[0]:
+        if random.randrange(0, 1) < EPSILON:
+            best_action_index = best_actions[0][random.randint(0, 3)].item()
+        else:
+            best_action_index = i.item()
+        next_position = (current_position[0] + ACTIONS[best_action_index][0], current_position[1] + ACTIONS[best_action_index][1])
+        print(f"Current: ({current_position[0]},{current_position[1]})")
+        print("Q-Values:", q_values)
+        print("Best action:", best_action_index)
+        print("Next position:", next_position)
+
+        if not is_valid(next_position[0], next_position[1]):
+            print("Current best action invalid..")
+            print("Moving onto next best action..")
+            print()
+        else:
+            current_position = next_position
+            state_tensor = torch.tensor([[current_position[0]/H, current_position[1]/W]])
+            break
+
+if current_position == END:
+    print("\nEnd goal reached!")
