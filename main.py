@@ -1,5 +1,6 @@
 import os
 import random
+from collections import deque
 
 import torch
 from torch import nn
@@ -39,8 +40,12 @@ PATH = 0
 END = (8, 8)
 ACTIONS = [(-1,0),(0,1),(1,0),(0,-1)]
 MAX_STEPS = 200
+MEMORY = deque()
+MAX_MEMORY = 10000
+FINISHED = False
 
 steps = 0
+reward = 10
 current_position = (1,1)
 state = [[current_position[0] / H, current_position[1] / W]]
 state_tensor = torch.tensor(state)
@@ -64,6 +69,7 @@ model = DQN()
 
 while current_position != END and steps < MAX_STEPS:    
     steps += 1
+    reward -= 0.1
     q_values = model(state_tensor)
     best_actions = q_values.argsort(dim=1, descending=True)
         
@@ -83,9 +89,16 @@ while current_position != END and steps < MAX_STEPS:
             print("Moving onto next best action..")
             print()
         else:
+            MEMORY.append((state, ACTIONS[best_action_index], reward, next_position, FINISHED))
+            
+            if len(MEMORY) > MAX_MEMORY:
+                MEMORY.popleft()
+
             current_position = next_position
             state_tensor = torch.tensor([[current_position[0]/H, current_position[1]/W]])
             break
-
+        
 if current_position == END:
     print("\nEnd goal reached!")
+    FINISHED = True
+    MEMORY.append((state, ACTIONS[best_action_index], reward + 10, next_position, FINISHED))
